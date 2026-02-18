@@ -1,0 +1,4 @@
+
+docker run -v $PWD:/git-repos/demo -p 8080:8080 --rm -it ghcr.io/trion-development/local-git
+
+
