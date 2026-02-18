@@ -72,7 +72,7 @@ class GitRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
         if stderr_data:
-            print(f"Git Error: {stderr_data.decode()}", file=sys.stderr)
+            print(f"Git Error: {stderr_data.decode('utf-8', errors='backslashreplace')}", file=sys.stderr)
 
 print(f"")
 print(f"--- Filesystem git HTTP bridge ---")
