@@ -61,18 +61,33 @@ class GitRequestHandler(BaseHTTPRequestHandler):
 
         stdout_data, stderr_data = proc.communicate(input=input_data)
 
-        header_part, _, body = stdout_data.partition(b'\r\n\r\n')
-        
-        self.send_response(200)
-        for line in header_part.split(b'\r\n'):
+        if b'\r\n\r\n' in stdout_data:
+            header_part, body = stdout_data.split(b'\r\n\r\n', 1)
+        else:
+            header_part, body = stdout_data.split(b'\n\n', 1)
+
+        headers = []
+        status_code = 200
+        for line in header_part.splitlines():
             if b':' in line:
                 key, val = line.split(b':', 1)
-                self.send_header(key.decode().strip(), val.decode().strip())
+                key_str = key.decode().strip()
+                val_str = val.decode().strip()
+                if key_str.lower() == 'status':
+                    status_code = int(val_str.split(' ')[0])
+                else:
+                    headers.append((key_str, val_str))
+
+        self.send_response(status_code)
+        for key, val in headers:
+            self.send_header(key, val)
         self.end_headers()
+        
         self.wfile.write(body)
 
         if stderr_data:
-            print(f"Git Error: {stderr_data.decode('utf-8', errors='backslashreplace')}", file=sys.stderr)
+            print(f"Git Error: {stderr_data.decode('utf-8', errors='replace')}", file=sys.stderr)
+
 
 print(f"")
 print(f"--- Filesystem git HTTP bridge ---")

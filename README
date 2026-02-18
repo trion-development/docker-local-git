@@ -1,4 +1,5 @@
+Exposes a directory containing git repositories as a git http server.
+
+For development, for example iterating a CI setup, avoiding repeated pushes.
 
 docker run -v $PWD:/git-repos/demo -p 8080:8080 --rm -it ghcr.io/trion-development/local-git
-
-
