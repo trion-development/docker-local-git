@@ -44,9 +44,17 @@ class GitRequestHandler(BaseHTTPRequestHandler):
             'GIT_HTTP_EXPORT_ALL': '1',
             'PATH_INFO': self.path.split('?')[0],
             'QUERY_STRING': self.path.split('?')[1] if '?' in self.path else '',
-            'CONTENT_TYPE': self.headers.get('Content-Type', ''),
             'REMOTE_ADDR': self.client_address[0],
         }
+
+        for key, value in self.headers.items():
+            env_key = f"HTTP_{key.upper().replace('-', '_')}"
+            env[env_key] = value
+        
+        if 'Content-Type' in self.headers:
+            env['CONTENT_TYPE'] = self.headers['Content-Type']
+        if 'Content-Length' in self.headers:
+            env['CONTENT_LENGTH'] = self.headers['Content-Length']
 
         content_length = int(self.headers.get('Content-Length', 0))
         input_data = self.rfile.read(content_length) if content_length > 0 else None
@@ -61,33 +69,31 @@ class GitRequestHandler(BaseHTTPRequestHandler):
 
         stdout_data, stderr_data = proc.communicate(input=input_data)
 
-        if b'\r\n\r\n' in stdout_data:
-            header_part, body = stdout_data.split(b'\r\n\r\n', 1)
-        else:
-            header_part, body = stdout_data.split(b'\n\n', 1)
+        delimiter = b'\r\n\r\n' if b'\r\n\r\n' in stdout_data else b'\n\n'
+        parts = stdout_data.split(delimiter, 1)
+        
+        header_part = parts[0]
+        body = parts[1] if len(parts) > 1 else b''
 
-        headers = []
         status_code = 200
+        response_headers = []
         for line in header_part.splitlines():
             if b':' in line:
-                key, val = line.split(b':', 1)
-                key_str = key.decode().strip()
-                val_str = val.decode().strip()
-                if key_str.lower() == 'status':
-                    status_code = int(val_str.split(' ')[0])
+                k, v = line.split(b':', 1)
+                k_str, v_str = k.decode().strip(), v.decode().strip()
+                if k_str.lower() == 'status':
+                    status_code = int(v_str.split(' ')[0])
                 else:
-                    headers.append((key_str, val_str))
+                    response_headers.append((k_str, v_str))
 
         self.send_response(status_code)
-        for key, val in headers:
-            self.send_header(key, val)
+        for k, v in response_headers:
+            self.send_header(k, v)
         self.end_headers()
-        
         self.wfile.write(body)
 
         if stderr_data:
-            print(f"Git Error: {stderr_data.decode('utf-8', errors='replace')}", file=sys.stderr)
-
+            print(f"Backend Error: {stderr_data.decode('utf-8', errors='replace')}", file=sys.stderr)
 
 print(f"")
 print(f"--- Filesystem git HTTP bridge ---")
